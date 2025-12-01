@@ -1,20 +1,18 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import pyodbc
+from Quan_Ly_tac_gia import open_quan_ly_tac_gia
+from Quan_Ly_the_loai import open_quan_ly_the_loai
+from Quan_Ly_nha_xuat_ban import open_quan_ly_nha_xuat_ban
+from app_style import setup_style, BG_MAIN, FG_TITLE, FONT_TITLE
 
-# ================== CẤU HÌNH KẾT NỐI SQL SERVER ==================
+setup_style()
 
-# Windows Authentication: tài khoản Windows đang đăng nhập phải có quyền trên DB QLBS
 SERVER = r"MSI\CANH"
 DATABASE = "QLBSS"
 
 
 def ket_noi_db():
-    """
-    Thiết lập và trả về kết nối đến SQL Server bằng Windows Authentication.
-    Trả về:
-        pyodbc.Connection hoặc None nếu lỗi.
-    """
     try:
         conn_str = (
             "DRIVER={ODBC Driver 17 for SQL Server};"
@@ -31,12 +29,7 @@ def ket_noi_db():
         return None
 
 
-# ================== HÀM LÀM VIỆC VỚI DỮ LIỆU ==================
-
 def tai_du_lieu(tree: ttk.Treeview):
-    """
-    Truy vấn toàn bộ dữ liệu bảng SACH và hiển thị lên Treeview.
-    """
     conn = ket_noi_db()
     if conn is None:
         return
@@ -65,53 +58,45 @@ def tai_du_lieu(tree: ttk.Treeview):
         conn.close()
 
 
-# ================== GIAO DIỆN CHÍNH ==================
-
 root = tk.Tk()
 root.title("HỆ THỐNG QUẢN LÝ BÁN SÁCH")
-root.geometry("950x550")
-root.configure(bg="#f0f2f5")
+root.geometry("1000x600")
+root.configure(bg=BG_MAIN)
 
-# Cột mặc định (phù hợp cấu trúc bảng SACH)
 COT_MAC_DINH = ("MaSach", "TenSach", "GiaBan", "SoLuongTon",
                 "MaTheLoai", "MaTacGia", "MaNXB")
 
-# ----- Khung tiêu đề -----
-title_frame = tk.Frame(root, bg="#f0f2f5")
+title_frame = tk.Frame(root, bg=BG_MAIN)
 title_frame.pack(fill="x", padx=10, pady=(10, 5))
 
 lbl_title = tk.Label(
     title_frame,
     text="HỆ THỐNG QUẢN LÝ BÁN SÁCH",
-    font=("Segoe UI", 16, "bold"),
-    bg="#f0f2f5",
-    fg="#1f4e79"
+    font=FONT_TITLE,
+    bg=BG_MAIN,
+    fg=FG_TITLE
 )
 lbl_title.pack(side="left")
 
-# ----- Khung tìm kiếm -----
-search_frame = tk.Frame(root, bg="#f0f2f5")
+search_frame = tk.Frame(root, bg=BG_MAIN)
 search_frame.pack(fill="x", padx=10, pady=(0, 5))
 
 tk.Label(
     search_frame,
     text="Tìm kiếm:",
-    bg="#f0f2f5",
+    bg=BG_MAIN,
     font=("Segoe UI", 10)
 ).pack(side="left")
 
 entry_search = tk.Entry(search_frame, width=30)
 entry_search.pack(side="left", padx=(5, 5))
 
-# placeholder, gán command thật sau khi định nghĩa tim_kiem()
 btn_search = tk.Button(search_frame, text="Tìm", width=10)
 btn_search.pack(side="left")
 
-# nút tải lại
 btn_reload = tk.Button(search_frame, text="Tải lại", width=10)
 btn_reload.pack(side="left", padx=(5, 0))
 
-# ----- Khung bảng Treeview + Scrollbar -----
 table_frame = tk.Frame(root)
 table_frame.pack(fill="both", expand=True, padx=10, pady=(0, 5))
 
@@ -123,7 +108,6 @@ scroll_y.pack(side="right", fill="y")
 
 tree.pack(side="left", fill="both", expand=True)
 
-# Cấu hình tiêu đề và độ rộng cột ban đầu
 tree.heading("MaSach", text="Mã Sách")
 tree.column("MaSach", width=80, anchor=tk.E)
 
@@ -146,15 +130,10 @@ tree.heading("MaNXB", text="Mã Nhà Xuất Bản")
 tree.column("MaNXB", width=120, anchor=tk.W)
 
 
-# ================== CÁC HÀM XỬ LÝ NÚT ==================
-
 def them_sach():
-    """
-    Mở form thêm sách mới.
-    """
     win = tk.Toplevel(root)
     win.title("Thêm Sách")
-    win.geometry("450x350")
+    win.geometry("450x400")
     win.transient(root)
     win.grab_set()
     win.configure(bg="#ffffff")
@@ -167,7 +146,7 @@ def them_sach():
         text="THÔNG TIN SÁCH",
         font=("Segoe UI", 12, "bold"),
         bg="#ffffff",
-        fg="#1f4e79"
+        fg=FG_TITLE
     ).grid(row=0, column=0, columnspan=2, padx=10, pady=(10, 10))
 
     start_row = 1
@@ -218,9 +197,6 @@ def them_sach():
 
 
 def sua_sach():
-    """
-    Mở form sửa sách đang chọn.
-    """
     sel = tree.selection()
     if not sel:
         messagebox.showwarning("Chưa chọn", "Vui lòng chọn 1 sách để sửa.")
@@ -235,7 +211,7 @@ def sua_sach():
 
     win = tk.Toplevel(root)
     win.title("Sửa Sách")
-    win.geometry("450x350")
+    win.geometry("450x400")
     win.transient(root)
     win.grab_set()
     win.configure(bg="#ffffff")
@@ -247,7 +223,7 @@ def sua_sach():
         text="CẬP NHẬT THÔNG TIN SÁCH",
         font=("Segoe UI", 12, "bold"),
         bg="#ffffff",
-        fg="#1f4e79"
+        fg=FG_TITLE
     ).grid(row=0, column=0, columnspan=2, padx=10, pady=(10, 10))
 
     start_row = 1
@@ -304,9 +280,6 @@ def sua_sach():
 
 
 def xoa_sach():
-    """
-    Xóa các sách đang được chọn.
-    """
     sel = tree.selection()
     if not sel:
         messagebox.showwarning("Chưa chọn", "Vui lòng chọn 1 hoặc nhiều sách để xóa.")
@@ -347,9 +320,6 @@ def xoa_sach():
 
 
 def tim_kiem():
-    """
-    Tìm sách theo chuỗi nhập (MaSach, TenSach, MaTacGia, MaTheLoai, MaNXB).
-    """
     q = entry_search.get().strip()
 
     if q == "":
@@ -393,31 +363,35 @@ def tim_kiem():
 
 
 def thoat_ung_dung():
-    """
-    Thoát ứng dụng sau khi xác nhận.
-    """
     if messagebox.askyesno("Xác nhận", "Bạn có chắc muốn thoát ứng dụng?"):
         root.destroy()
 
 
-# Gán command cho các nút tìm kiếm / tải lại
 btn_search.config(command=tim_kiem)
 btn_reload.config(command=lambda: tai_du_lieu(tree))
 
-# ----- Khung nút chức năng -----
-btn_frame_actions = tk.Frame(root, bg="#f0f2f5")
+btn_frame_actions = tk.Frame(root, bg=BG_MAIN)
 btn_frame_actions.pack(fill="x", padx=10, pady=(0, 10))
 
 tk.Button(btn_frame_actions, text="Thêm sách", width=12,
-          command=them_sach).pack(side="left")
+          command=them_sach).pack(side="left", padx=3)
 tk.Button(btn_frame_actions, text="Sửa sách", width=12,
-          command=sua_sach).pack(side="left", padx=6)
+          command=sua_sach).pack(side="left", padx=3)
 tk.Button(btn_frame_actions, text="Xóa sách", width=12,
-          command=xoa_sach).pack(side="left", padx=6)
-tk.Button(btn_frame_actions, text="Thoát", width=12,
-          command=thoat_ung_dung).pack(side="right")
+          command=xoa_sach).pack(side="left", padx=3)
 
-# Tải dữ liệu lần đầu
+ttk.Button(btn_frame_actions, text="Quản Lý Tác Giả",
+          command=lambda: open_quan_ly_tac_gia(root, SERVER, DATABASE)).pack(side="left", padx=3)
+
+ttk.Button(btn_frame_actions, text="Quản Lý Thể Loại",
+          command=lambda: open_quan_ly_the_loai(root, SERVER, DATABASE)).pack(side="left", padx=3)
+
+ttk.Button(btn_frame_actions, text="Quản Lý NXB",
+          command=lambda: open_quan_ly_nha_xuat_ban(root, SERVER, DATABASE)).pack(side="left", padx=3)
+
+tk.Button(btn_frame_actions, text="Thoát", width=12,
+          command=thoat_ung_dung).pack(side="right", padx=3)
+
 tai_du_lieu(tree)
 
 root.mainloop()

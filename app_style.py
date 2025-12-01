@@ -1,4 +1,3 @@
-# app_styles.py
 import tkinter as tk
 from tkinter import ttk
 
@@ -9,15 +8,25 @@ FONT_TITLE = ("Segoe UI", 16, "bold")
 FONT_SUBTITLE = ("Segoe UI", 12, "bold")
 FONT_TEXT = ("Segoe UI", 10)
 
+
 def setup_style():
     style = ttk.Style()
     style.theme_use("clam")
     style.configure(
         "Treeview",
         font=("Segoe UI", 9),
-        rowheight=22
+        rowheight=22,
+        background=BG_PANEL,
+        fieldbackground=BG_PANEL
+    )
+    style.configure(
+        "Treeview.Heading",
+        font=FONT_SUBTITLE,
+        background=BG_MAIN,
+        foreground=FG_TITLE
     )
     style.configure(
         "TButton",
-        font=("Segoe UI", 9)
+        font=("Segoe UI", 9),
+        padding=6
     )
