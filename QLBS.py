@@ -1,271 +1,423 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import pyodbc # Thư viện kết nối phổ biến với SQL Server
+import pyodbc
 
-# Thông tin kết nối SQL Server
-# Thay đổi các giá trị này để phù hợp với môi trường của bạn
-server = r'MSI\CANH'
-database = 'QLBS'
-username = 'TuanCanh'
-password = '123'
+# ================== CẤU HÌNH KẾT NỐI SQL SERVER ==================
+
+# Windows Authentication: tài khoản Windows đang đăng nhập phải có quyền trên DB QLBS
+SERVER = r"MSI\CANH"
+DATABASE = "QLBSS"
+
 
 def ket_noi_db():
-    """Thiết lập và trả về kết nối đến SQL Server."""
+    """
+    Thiết lập và trả về kết nối đến SQL Server bằng Windows Authentication.
+    Trả về:
+        pyodbc.Connection hoặc None nếu lỗi.
+    """
     try:
         conn_str = (
-            f'DRIVER={{ODBC Driver 17 for SQL Server}};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={password};'
+            "DRIVER={ODBC Driver 17 for SQL Server};"
+            f"SERVER={SERVER};"
+            f"DATABASE={DATABASE};"
+            "Trusted_Connection=yes;"
         )
-        conn = pyodbc.connect(conn_str)
-        return conn
+        return pyodbc.connect(conn_str)
     except pyodbc.Error as ex:
-        sqlstate = ex.args[0]
-        messagebox.showerror("Lỗi Kết Nối", f"Không thể kết nối đến SQL Server: \n{sqlstate}")
+        messagebox.showerror(
+            "Lỗi kết nối",
+            f"Không thể kết nối đến SQL Server.\nChi tiết: {ex}"
+        )
         return None
 
-def tai_du_lieu(tree):
-    """Truy vấn dữ liệu từ SQL Server và chèn vào Treeview."""
+
+# ================== HÀM LÀM VIỆC VỚI DỮ LIỆU ==================
+
+def tai_du_lieu(tree: ttk.Treeview):
+    """
+    Truy vấn toàn bộ dữ liệu bảng SACH và hiển thị lên Treeview.
+    """
     conn = ket_noi_db()
     if conn is None:
         return
-
-    for item in tree.get_children():
-        tree.delete(item)
 
     try:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM SACH")
         rows = cursor.fetchall()
+
         cols = [col[0] for col in cursor.description]
 
         tree.delete(*tree.get_children())
-        tree['columns'] = cols
+        tree["columns"] = cols
+
         for c in cols:
             tree.heading(c, text=c)
             tree.column(c, width=120, anchor=tk.W)
 
         for row in rows:
-            vals = [("" if v is None else str(v)) for v in row]
-            tree.insert('', tk.END, values=vals)
+            vals = ["" if v is None else str(v) for v in row]
+            tree.insert("", tk.END, values=vals)
 
     except pyodbc.Error as ex:
-        messagebox.showerror("Lỗi Truy Vấn", f"Có lỗi khi tải dữ liệu: {ex}")
+        messagebox.showerror("Lỗi truy vấn", f"Có lỗi khi tải dữ liệu: {ex}")
     finally:
         conn.close()
 
-# --- Thiết kế Giao diện Tkinter ---
+
+# ================== GIAO DIỆN CHÍNH ==================
+
 root = tk.Tk()
-root.title("Quản Lý Bán Sách - Dữ liệu SQL Server")
-root.geometry("900x600")
+root.title("HỆ THỐNG QUẢN LÝ BÁN SÁCH")
+root.geometry("950x550")
+root.configure(bg="#f0f2f5")
 
-# Top: input form giống giao diện mẫu (sử dụng grid)
-form_frame = tk.Frame(root, padx=8, pady=8)
-form_frame.pack(fill='x')
+# Cột mặc định (phù hợp cấu trúc bảng SACH)
+COT_MAC_DINH = ("MaSach", "TenSach", "GiaBan", "SoLuongTon",
+                "MaTheLoai", "MaTacGia", "MaNXB")
 
-labels_main = ["MaSach", "TenSach", "GiaBan", "SoLuongTon", "MaTheLoai", "MaTacGia", "MaNXB", "NamXuatBan"]
-main_entries = {}
+# ----- Khung tiêu đề -----
+title_frame = tk.Frame(root, bg="#f0f2f5")
+title_frame.pack(fill="x", padx=10, pady=(10, 5))
 
-# Arrange inputs in two columns to resemble sample layout
-for i, lbl in enumerate(labels_main):
-    r = i // 2
-    c = (i % 2) * 2
-    tk.Label(form_frame, text=lbl).grid(row=r, column=c, sticky='e', padx=6, pady=6)
-    e = tk.Entry(form_frame, width=30)
-    e.grid(row=r, column=c+1, sticky='w', padx=6, pady=6)
-    main_entries[lbl] = e
+lbl_title = tk.Label(
+    title_frame,
+    text="HỆ THỐNG QUẢN LÝ BÁN SÁCH",
+    font=("Segoe UI", 16, "bold"),
+    bg="#f0f2f5",
+    fg="#1f4e79"
+)
+lbl_title.pack(side="left")
 
-# Buttons row under form
-btns_frame = tk.Frame(root, pady=6)
-btns_frame.pack(fill='x', padx=8)
+# ----- Khung tìm kiếm -----
+search_frame = tk.Frame(root, bg="#f0f2f5")
+search_frame.pack(fill="x", padx=10, pady=(0, 5))
 
-def clear_main_entries():
-    for e in main_entries.values():
-        e.delete(0, tk.END)
+tk.Label(
+    search_frame,
+    text="Tìm kiếm:",
+    bg="#f0f2f5",
+    font=("Segoe UI", 10)
+).pack(side="left")
 
-def them_sach_from_entries():
-    """Thêm sách lấy dữ liệu trực tiếp từ các Entry trên form chính."""
-    vals = [main_entries[col].get().strip() for col in labels_main]
-    if not vals[0]:
-        messagebox.showwarning("Thiếu dữ liệu", "Mã sách không được để trống")
-        return
+entry_search = tk.Entry(search_frame, width=30)
+entry_search.pack(side="left", padx=(5, 5))
 
-    cols_sql = ",".join(labels_main)
-    placeholders = ",".join(["?"] * len(labels_main))
-    sql = f"INSERT INTO SACH ({cols_sql}) VALUES ({placeholders})"
+# placeholder, gán command thật sau khi định nghĩa tim_kiem()
+btn_search = tk.Button(search_frame, text="Tìm", width=10)
+btn_search.pack(side="left")
 
-    conn = ket_noi_db()
-    if conn is None:
-        return
-    try:
-        cur = conn.cursor()
-        cur.execute(sql, vals)
-        conn.commit()
-        messagebox.showinfo("Thành công", "Đã thêm sách")
-        clear_main_entries()
-        tai_du_lieu(tree)
-    except pyodbc.Error as ex:
-        messagebox.showerror("Lỗi", f"Không thể thêm: {ex}")
-    finally:
-        conn.close()
+# nút tải lại
+btn_reload = tk.Button(search_frame, text="Tải lại", width=10)
+btn_reload.pack(side="left", padx=(5, 0))
 
-def sua_sach_from_entries():
-    """Cập nhật bản ghi theo MaSach (MaSach gốc phải tồn tại)."""
-    vals = [main_entries[col].get().strip() for col in labels_main]
-    if not vals[0]:
-        messagebox.showwarning("Thiếu dữ liệu", "Mã sách không được để trống")
-        return
-    # UPDATE tất cả cột trừ dùng MaSach làm WHERE
-    set_clause = ",".join([f"{c}=?" for c in labels_main])
-    sql = f"UPDATE SACH SET {set_clause} WHERE MaSach = ?"
-    params = vals + [vals[0]]  # WHERE MaSach = original MaSach (nếu user thay đổi mã, logic này dùng mã hiện tại)
+# ----- Khung bảng Treeview + Scrollbar -----
+table_frame = tk.Frame(root)
+table_frame.pack(fill="both", expand=True, padx=10, pady=(0, 5))
 
-    conn = ket_noi_db()
-    if conn is None:
-        return
-    try:
-        cur = conn.cursor()
-        cur.execute(sql, params)
-        conn.commit()
-        messagebox.showinfo("Thành công", "Đã cập nhật sách")
-        clear_main_entries()
-        tai_du_lieu(tree)
-    except pyodbc.Error as ex:
-        messagebox.showerror("Lỗi", f"Không thể cập nhật: {ex}")
-    finally:
-        conn.close()
+tree = ttk.Treeview(table_frame, columns=COT_MAC_DINH, show="headings")
 
-def on_tree_select_fill_entries(event=None):
-    sel = tree.selection()
-    if not sel:
-        return
-    item = sel[0]
-    vals = tree.item(item, 'values')
-    if not vals:
-        return
-    # Nếu số cột trong tree khác labels_main, chỉ map tối thiểu
-    for i, col in enumerate(labels_main):
+scroll_y = tk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+tree.configure(yscrollcommand=scroll_y.set)
+scroll_y.pack(side="right", fill="y")
+
+tree.pack(side="left", fill="both", expand=True)
+
+# Cấu hình tiêu đề và độ rộng cột ban đầu
+tree.heading("MaSach", text="Mã Sách")
+tree.column("MaSach", width=80, anchor=tk.E)
+
+tree.heading("TenSach", text="Tên Sách")
+tree.column("TenSach", width=350, anchor=tk.W)
+
+tree.heading("GiaBan", text="Giá Bán")
+tree.column("GiaBan", width=120, anchor=tk.E)
+
+tree.heading("SoLuongTon", text="Tồn Kho")
+tree.column("SoLuongTon", width=80, anchor=tk.E)
+
+tree.heading("MaTheLoai", text="Mã Thể Loại")
+tree.column("MaTheLoai", width=100, anchor=tk.W)
+
+tree.heading("MaTacGia", text="Mã Tác Giả")
+tree.column("MaTacGia", width=100, anchor=tk.W)
+
+tree.heading("MaNXB", text="Mã Nhà Xuất Bản")
+tree.column("MaNXB", width=120, anchor=tk.W)
+
+
+# ================== CÁC HÀM XỬ LÝ NÚT ==================
+
+def them_sach():
+    """
+    Mở form thêm sách mới.
+    """
+    win = tk.Toplevel(root)
+    win.title("Thêm Sách")
+    win.geometry("450x350")
+    win.transient(root)
+    win.grab_set()
+    win.configure(bg="#ffffff")
+
+    cols = list(tree["columns"]) or list(COT_MAC_DINH)
+    entries = {}
+
+    tk.Label(
+        win,
+        text="THÔNG TIN SÁCH",
+        font=("Segoe UI", 12, "bold"),
+        bg="#ffffff",
+        fg="#1f4e79"
+    ).grid(row=0, column=0, columnspan=2, padx=10, pady=(10, 10))
+
+    start_row = 1
+    for i, col in enumerate(cols):
+        tk.Label(
+            win,
+            text=col + ":",
+            bg="#ffffff",
+            anchor="e"
+        ).grid(row=start_row + i, column=0, padx=10, pady=4, sticky="e")
+
+        e = tk.Entry(win, width=35)
+        e.grid(row=start_row + i, column=1, padx=10, pady=4, sticky="w")
+        entries[col] = e
+
+    def submit():
+        vals = [entries[c].get().strip() for c in cols]
+
+        if not vals[0]:
+            messagebox.showwarning("Thiếu dữ liệu", "Mã sách không được để trống.")
+            return
+
+        cols_sql = ",".join(cols)
+        placeholders = ",".join(["?"] * len(cols))
+        sql = f"INSERT INTO SACH ({cols_sql}) VALUES ({placeholders})"
+
+        conn = ket_noi_db()
+        if conn is None:
+            return
+
         try:
-            main_entries[col].delete(0, tk.END)
-            main_entries[col].insert(0, "" if vals[i] is None else str(vals[i]))
-        except Exception:
-            main_entries[col].delete(0, tk.END)
+            cur = conn.cursor()
+            cur.execute(sql, vals)
+            conn.commit()
+            messagebox.showinfo("Thành công", "Đã thêm sách mới.")
+            win.destroy()
+            tai_du_lieu(tree)
+        except pyodbc.Error as ex:
+            messagebox.showerror("Lỗi", f"Không thể thêm sách: {ex}")
+        finally:
+            conn.close()
 
-tk.Button(btns_frame, text="Thêm", width=10, command=them_sach_from_entries).pack(side='left', padx=6)
-tk.Button(btns_frame, text="Lưu (Cập nhật)", width=12, command=sua_sach_from_entries).pack(side='left', padx=6)
-tk.Button(btns_frame, text="Sửa (lấy từ danh sách)", width=18, command=lambda: None).pack(side='left', padx=6)  # placeholder
-tk.Button(btns_frame, text="Hủy", width=10, command=clear_main_entries).pack(side='left', padx=6)
+    btn_frame = tk.Frame(win, bg="#ffffff")
+    btn_frame.grid(row=start_row + len(cols), column=0, columnspan=2, pady=10)
 
-# Search area and other action buttons (right side)
-search_frame = tk.Frame(btns_frame)
-search_frame.pack(side='right')
-entry_search = tk.Entry(search_frame, width=28)
-entry_search.pack(side='left', padx=(0,6))
+    tk.Button(btn_frame, text="Lưu", width=10, command=submit).pack(side="left", padx=5)
+    tk.Button(btn_frame, text="Đóng", width=10, command=win.destroy).pack(side="left", padx=5)
 
-def tim_kiem():
-    """Tìm sách theo chuỗi nhập vào (MaSach, TenSach, MaTacGia, MaTheLoai, MaNXB)."""
-    q = entry_search.get().strip()
-    conn = ket_noi_db()
-    if conn is None:
-        return
-    if q == "":
-        tai_du_lieu(tree)
-        return
-    try:
-        cur = conn.cursor()
-        pattern = f"%{q}%"
-        sql = """
-            SELECT * FROM SACH
-            WHERE MaSach LIKE ? OR TenSach LIKE ? OR MaTacGia LIKE ? OR MaTheLoai LIKE ? OR MaNXB LIKE ?
-        """
-        cur.execute(sql, (pattern, pattern, pattern, pattern, pattern))
-        rows = cur.fetchall()
-        cols = [col[0] for col in cur.description]
-
-        for item in tree.get_children():
-            tree.delete(item)
-        tree['columns'] = cols
-        for c in cols:
-            tree.heading(c, text=c)
-            tree.column(c, width=120, anchor=tk.W)
-
-        for row in rows:
-            vals = [("" if v is None else str(v)) for v in row]
-            tree.insert('', tk.END, values=vals)
-
-    except pyodbc.Error as ex:
-        messagebox.showerror("Lỗi", f"Có lỗi khi tìm kiếm: {ex}")
-    finally:
-        conn.close()
-
-def tim_lai():
-    entry_search.delete(0, tk.END)
-    tai_du_lieu(tree)
-
-btn_search = tk.Button(search_frame, text="Tìm", width=8, command=tim_kiem)
-btn_search.pack(side='left', padx=(0,6))
-tk.Button(search_frame, text="Tìm lại", width=8, command=tim_lai).pack(side='left')
-
-tk.Button(search_frame, text="Xóa", width=8, command=lambda: xoa_sach()).pack(side='left', padx=(12,0))
-tk.Button(search_frame, text="Thoát", width=8, command=lambda: thoat_ung_dung()).pack(side='left', padx=(6,0))
-
-# Treeview area
-cot = ("MaSach", "TenSach", "GiaBan", "SoLuongTon","MaTheLoai","MaTacGia","MaNXB")
-tree = ttk.Treeview(root, columns=cot, show='headings')
-for c in cot:
-    tree.heading(c, text=c)
-    tree.column(c, width=120, anchor=tk.W)
-tree.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
-
-# Gắn sự kiện chọn dòng để đưa dữ liệu lên form
-tree.bind("<<TreeviewSelect>>", on_tree_select_fill_entries)
 
 def sua_sach():
-    # giữ để tương thích với các phần khác (không dùng cửa sổ mới)
-    on_tree_select_fill_entries()
-
-def xoa_sach():
+    """
+    Mở form sửa sách đang chọn.
+    """
     sel = tree.selection()
     if not sel:
-        messagebox.showwarning("Chưa chọn", "Vui lòng chọn 1 hoặc nhiều sách để xóa")
+        messagebox.showwarning("Chưa chọn", "Vui lòng chọn 1 sách để sửa.")
+        return
+    if len(sel) > 1:
+        messagebox.showwarning("Chọn 1 bản ghi", "Vui lòng chỉ chọn một sách.")
+        return
+
+    item_id = sel[0]
+    vals = tree.item(item_id, "values")
+    cols = list(tree["columns"]) or list(COT_MAC_DINH)
+
+    win = tk.Toplevel(root)
+    win.title("Sửa Sách")
+    win.geometry("450x350")
+    win.transient(root)
+    win.grab_set()
+    win.configure(bg="#ffffff")
+
+    entries = {}
+
+    tk.Label(
+        win,
+        text="CẬP NHẬT THÔNG TIN SÁCH",
+        font=("Segoe UI", 12, "bold"),
+        bg="#ffffff",
+        fg="#1f4e79"
+    ).grid(row=0, column=0, columnspan=2, padx=10, pady=(10, 10))
+
+    start_row = 1
+    for i, col in enumerate(cols):
+        tk.Label(
+            win,
+            text=col + ":",
+            bg="#ffffff",
+            anchor="e"
+        ).grid(row=start_row + i, column=0, padx=10, pady=4, sticky="e")
+
+        e = tk.Entry(win, width=35)
+        e.grid(row=start_row + i, column=1, padx=10, pady=4, sticky="w")
+        try:
+            e.insert(0, "" if vals[i] is None else str(vals[i]))
+        except Exception:
+            pass
+        entries[col] = e
+
+    original_ma = vals[0] if vals else None
+
+    def submit_edit():
+        new_vals = [entries[c].get().strip() for c in cols]
+
+        if not new_vals[0]:
+            messagebox.showwarning("Thiếu dữ liệu", "Mã sách không được để trống.")
+            return
+
+        set_clause = ",".join([f"{c}=?" for c in cols])
+        sql = f"UPDATE SACH SET {set_clause} WHERE MaSach = ?"
+        params = new_vals + [original_ma]
+
+        conn = ket_noi_db()
+        if conn is None:
+            return
+
+        try:
+            cur = conn.cursor()
+            cur.execute(sql, params)
+            conn.commit()
+            messagebox.showinfo("Thành công", "Đã cập nhật sách.")
+            win.destroy()
+            tai_du_lieu(tree)
+        except pyodbc.Error as ex:
+            messagebox.showerror("Lỗi", f"Không thể cập nhật sách: {ex}")
+        finally:
+            conn.close()
+
+    btn_frame = tk.Frame(win, bg="#ffffff")
+    btn_frame.grid(row=start_row + len(cols), column=0, columnspan=2, pady=10)
+
+    tk.Button(btn_frame, text="Lưu", width=10, command=submit_edit).pack(side="left", padx=5)
+    tk.Button(btn_frame, text="Đóng", width=10, command=win.destroy).pack(side="left", padx=5)
+
+
+def xoa_sach():
+    """
+    Xóa các sách đang được chọn.
+    """
+    sel = tree.selection()
+    if not sel:
+        messagebox.showwarning("Chưa chọn", "Vui lòng chọn 1 hoặc nhiều sách để xóa.")
         return
 
     masach_list = []
-    for item in sel:
-        vals = tree.item(item, 'values')
+    for item_id in sel:
+        vals = tree.item(item_id, "values")
         if vals:
             masach_list.append(vals[0])
 
     if not masach_list:
-        messagebox.showwarning("Lỗi", "Không thể xác định Mã sách để xóa")
+        messagebox.showwarning("Lỗi", "Không thể xác định Mã sách để xóa.")
         return
 
-    if not messagebox.askyesno("Xác nhận", f"Bạn có chắc muốn xóa {len(masach_list)} sách?"):
+    if not messagebox.askyesno(
+        "Xác nhận",
+        f"Bạn có chắc muốn xóa {len(masach_list)} sách đã chọn?"
+    ):
         return
 
     conn = ket_noi_db()
     if conn is None:
         return
+
     try:
         cur = conn.cursor()
         sql = "DELETE FROM SACH WHERE MaSach = ?"
         for m in masach_list:
             cur.execute(sql, (m,))
         conn.commit()
-        messagebox.showinfo("Thành công", "Đã xóa sách")
+        messagebox.showinfo("Thành công", "Đã xóa sách.")
         tai_du_lieu(tree)
     except pyodbc.Error as ex:
-        messagebox.showerror("Lỗi", f"Không thể xóa: {ex}")
+        messagebox.showerror("Lỗi", f"Không thể xóa sách: {ex}")
     finally:
         conn.close()
 
+
+def tim_kiem():
+    """
+    Tìm sách theo chuỗi nhập (MaSach, TenSach, MaTacGia, MaTheLoai, MaNXB).
+    """
+    q = entry_search.get().strip()
+
+    if q == "":
+        tai_du_lieu(tree)
+        return
+
+    conn = ket_noi_db()
+    if conn is None:
+        return
+
+    try:
+        cur = conn.cursor()
+        pattern = f"%{q}%"
+        sql = """
+            SELECT * FROM SACH
+            WHERE MaSach LIKE ?
+               OR TenSach LIKE ?
+               OR MaTacGia LIKE ?
+               OR MaTheLoai LIKE ?
+               OR MaNXB LIKE ?
+        """
+        cur.execute(sql, (pattern, pattern, pattern, pattern, pattern))
+        rows = cur.fetchall()
+        cols = [col[0] for col in cur.description]
+
+        tree.delete(*tree.get_children())
+        tree["columns"] = cols
+
+        for c in cols:
+            tree.heading(c, text=c)
+            tree.column(c, width=120, anchor=tk.W)
+
+        for row in rows:
+            vals = ["" if v is None else str(v) for v in row]
+            tree.insert("", tk.END, values=vals)
+
+    except pyodbc.Error as ex:
+        messagebox.showerror("Lỗi", f"Có lỗi khi tìm kiếm: {ex}")
+    finally:
+        conn.close()
+
+
 def thoat_ung_dung():
+    """
+    Thoát ứng dụng sau khi xác nhận.
+    """
     if messagebox.askyesno("Xác nhận", "Bạn có chắc muốn thoát ứng dụng?"):
         root.destroy()
 
-# Tải dữ liệu lần đầu khi ứng dụng khởi động
+
+# Gán command cho các nút tìm kiếm / tải lại
+btn_search.config(command=tim_kiem)
+btn_reload.config(command=lambda: tai_du_lieu(tree))
+
+# ----- Khung nút chức năng -----
+btn_frame_actions = tk.Frame(root, bg="#f0f2f5")
+btn_frame_actions.pack(fill="x", padx=10, pady=(0, 10))
+
+tk.Button(btn_frame_actions, text="Thêm sách", width=12,
+          command=them_sach).pack(side="left")
+tk.Button(btn_frame_actions, text="Sửa sách", width=12,
+          command=sua_sach).pack(side="left", padx=6)
+tk.Button(btn_frame_actions, text="Xóa sách", width=12,
+          command=xoa_sach).pack(side="left", padx=6)
+tk.Button(btn_frame_actions, text="Thoát", width=12,
+          command=thoat_ung_dung).pack(side="right")
+
+# Tải dữ liệu lần đầu
 tai_du_lieu(tree)
 
 root.mainloop()
